@@ -1,23 +1,43 @@
-"""Two sentences that should not sit next to each other."""
+import json
 import os
+import re
 
-SENTENCES = [
-    "Every night at nine, my house locks its doors and dims the "
-    "lights without being asked.",
-    "Tonight it left a note: 'Sweet dreams — homeowner not detected.'",
-]
-DOOR = "tsh2"
-NINE = "21:00"
-NOTE_LEFT = "yes"
+TALE = "tsh3-two"
+ROOF = 400
 
-story = " ".join(SENTENCES)
-base = os.environ.get("MAKEFUN_OUTPUT_DIR") or "output"
-os.makedirs(base, exist_ok=True)
-p = os.path.join(base, "entry.txt")
-with open(p, "w", encoding="utf-8", newline="\n") as f:
-    f.write(story + "\n")
-with open(p, encoding="utf-8") as f:
-    back = f.read().strip()
-assert back == story, "the house rewrote it"
-print(DOOR, NINE, len(back), "chars, lights dimmed")
-print("note left:", NOTE_LEFT, "signed by nobody")
+
+def tale(blob):
+    for row in blob.replace("\r", "").split("\n"):
+        if row.strip():
+            return row
+    return ""
+
+
+def count_sentences(line):
+    parts = [p for p in re.split(r"(?<=[.!?])\s+", line.strip()) if p.strip()]
+    return len(parts)
+
+
+def bind(line, root):
+    shelf = os.environ.get("MAKEFUN_OUTPUT_DIR") or os.path.join(root, "output")
+    os.makedirs(shelf, exist_ok=True)
+    spine = os.path.join(shelf, "entry.txt")
+    ink = line.encode("utf-8")
+    with open(spine, "wb") as binder:
+        binder.write(ink)
+    with open(spine, "rb") as reader:
+        if reader.read() != ink:
+            raise IOError("binding split")
+    return spine
+
+
+root = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(root, "entry.txt"), encoding="utf-8") as page:
+    line = tale(page.read())
+
+sents = count_sentences(line)
+if not line.strip() or len(line) > ROOF or sents != 2:
+    print(json.dumps({"tale": "unfinished", "size": len(line), "sentences": sents}))
+    raise SystemExit(1)
+spine = bind(line, root)
+print(json.dumps({"tale": "bound", "size": len(line), "sentences": sents, "roof": ROOF, "sig": TALE, "spine": os.path.basename(spine)}))
